@@ -1,6 +1,5 @@
 package trungdevcode.latra.Service;
 
-
 import lombok.RequiredArgsConstructor;
 import org.modelmapper.ModelMapper;
 import org.springframework.data.domain.Page;
@@ -8,8 +7,11 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import trungdevcode.latra.Dto.DonHangDTO;
+import trungdevcode.latra.Entity.OrderDetail;
 import trungdevcode.latra.Entity.OrderEntity;
+import trungdevcode.latra.Entity.ProductVariant;
 import trungdevcode.latra.Repository.OrderRepository;
+import trungdevcode.latra.Repository.ProductVariantRepository;
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -18,16 +20,14 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class OrderService {
 
-    // Gọi theo cấu trúc mới: OrderRepository.Tên_Bảng
-    private final OrderRepository.Order orderRepo;
-    private final OrderRepository.ProductVariant variantRepo;
+    private final OrderRepository orderRepository;
+    private final ProductVariantRepository variantRepository;
     private final ModelMapper modelMapper;
 
-    // 1. API Danh sách
     public Page<DonHangDTO.DanhSach> getOrders(String status, Pageable pageable) {
         Page<OrderEntity> orders = (status != null && !status.isEmpty())
-                ? orderRepo.findByStatus(status, pageable)
-                : orderRepo.findAll(pageable);
+                ? orderRepository.findByStatus(status, pageable)
+                : orderRepository.findAll(pageable);
 
         return orders.map(order -> {
             DonHangDTO.DanhSach dto = modelMapper.map(order, DonHangDTO.DanhSach.class);
@@ -36,9 +36,8 @@ public class OrderService {
         });
     }
 
-    // 2. API Chi tiết
     public DonHangDTO.ChiTiet getOrderDetails(Long orderId) {
-        OrderEntity order = orderRepo.findById(orderId)
+        OrderEntity order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy đơn hàng"));
 
         DonHangDTO.ChiTiet dto = modelMapper.map(order, DonHangDTO.ChiTiet.class);
@@ -52,7 +51,11 @@ public class OrderService {
         List<DonHangDTO.Item> items = order.getOrderDetails().stream().map(detail -> {
             DonHangDTO.Item itemDto = new DonHangDTO.Item();
             itemDto.setVariantId(detail.getVariant().getId());
-            itemDto.setProductName(detail.getVariant().getProduct().getName());
+            if (detail.getVariant().getProduct() != null) {
+                itemDto.setProductName(detail.getVariant().getProduct().getName());
+            } else {
+                itemDto.setProductName("Sản phẩm không xác định"); // Giá trị mặc định nếu rỗng
+            }
             itemDto.setColor(detail.getVariant().getColor());
             itemDto.setStorage(detail.getVariant().getStorage());
             itemDto.setQuantity(detail.getQuantity());
@@ -64,25 +67,23 @@ public class OrderService {
         return dto;
     }
 
-    // 3. API Cập nhật & Tự động hoàn tồn kho khi Hủy
     @Transactional
     public void updateOrderStatus(Long orderId, DonHangDTO.CapNhatTrangThai request) {
-        OrderEntity order = orderRepo.findById(orderId)
+        OrderEntity order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy đơn hàng"));
 
         String oldStatus = order.getStatus();
         String newStatus = request.getStatus().toUpperCase();
 
         if ("CANCELLED".equals(newStatus) && !"CANCELLED".equals(oldStatus)) {
-            for (OrderEntity.OrderDetail detail : order.getOrderDetails()) {
-                OrderEntity.ProductVariant variant = detail.getVariant();
+            for (OrderDetail detail : order.getOrderDetails()) {
+                ProductVariant variant = detail.getVariant();
                 variant.setStock(variant.getStock() + detail.getQuantity());
-                // Lưu cập nhật tồn kho
-                variantRepo.save(variant);
+                variantRepository.save(variant);
             }
         }
 
         order.setStatus(newStatus);
-        orderRepo.save(order);
+        orderRepository.save(order);
     }
 }
