@@ -1,4 +1,4 @@
-package trungdevcode.latra.Controller;
+package trungdevcode.latra.exception;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
