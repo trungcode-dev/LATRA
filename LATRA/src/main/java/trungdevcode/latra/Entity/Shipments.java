@@ -13,7 +13,7 @@ public class Shipments {
 
     @OneToOne
     @JoinColumn(name = "order_id")
-    private OrderEntity order;
+    private Order order;
 
     private String address;
 }

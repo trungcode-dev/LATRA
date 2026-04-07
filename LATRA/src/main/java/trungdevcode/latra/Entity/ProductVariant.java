@@ -1,5 +1,6 @@
 package trungdevcode.latra.Entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import lombok.*;
 import java.math.BigDecimal;
@@ -32,6 +33,8 @@ public class ProductVariant {
     private String sku;
 
     @ManyToOne
-    @JoinColumn(name = "product_id", nullable = false)
+    @JoinColumn(name = "product_id")
+    // THÊM DÒNG NÀY ĐỂ CHẶN VÒNG LẶP:
+    @JsonIgnoreProperties("variants")
     private Product product;
 }
