@@ -2,23 +2,26 @@ package trungdevcode.latra.Entity;
 
 
 import jakarta.persistence.*;
-import lombok.Data;
-import java.math.BigDecimal;
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
+import java.math.BigDecimal;
 @Entity
 @Table(name = "order_details")
-@Data
+@Getter @Setter @NoArgsConstructor @AllArgsConstructor
 public class OrderDetail {
     @EmbeddedId
-    private OrderDetailKey id;
+    private OrderDetailKey id = new OrderDetailKey(); // Phải khởi tạo để tránh Null
 
     @ManyToOne
-    @MapsId("orderId")
+    @MapsId("orderId") // Ánh xạ vào trường orderId trong Key
     @JoinColumn(name = "order_id")
-    private OrderEntity order;
+    private Order order;
 
     @ManyToOne
-    @MapsId("variantId")
+    @MapsId("variantId") // Ánh xạ vào trường variantId trong Key
     @JoinColumn(name = "variant_id")
     private ProductVariant variant;
 

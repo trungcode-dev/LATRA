@@ -1,8 +1,10 @@
 package trungdevcode.latra.Entity;
 
 
-import jakarta.persistence.Column;
 import jakarta.persistence.Embeddable;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.MapsId;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 import java.io.Serializable;
@@ -11,9 +13,6 @@ import java.io.Serializable;
 @Data
 @EqualsAndHashCode
 public class OrderDetailKey implements Serializable {
-    @Column(name = "order_id")
-    private Long orderId;
-
-    @Column(name = "variant_id")
-    private Long variantId;
+    private Long orderId;   // Kiểu Long đơn giản
+    private Long variantId; // Kiểu Long đơn giản
 }
