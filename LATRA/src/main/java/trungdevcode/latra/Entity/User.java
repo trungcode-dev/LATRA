@@ -13,6 +13,9 @@ public class User {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Column(name = "loyalty_points")
+    private Integer loyaltyPoints = 0; // Điểm tích lũy VIP
+
     private String username;
     private String password;
 
