@@ -6,6 +6,7 @@ import org.springframework.transaction.annotation.Transactional;
 import trungdevcode.latra.Dto.CustomerDTO;
 import trungdevcode.latra.Entity.User;
 import trungdevcode.latra.Repository.UserRepository;
+
 import java.util.ArrayList;
 import java.util.List;
 
@@ -71,11 +72,15 @@ public class CustomerService {
     private void validateCustomerData(CustomerDTO dto) {
         if (dto.getUsername() == null || !dto.getUsername().trim().matches("^[a-zA-Z0-9_]{4,20}$"))
             throw new RuntimeException("Username 4-20 ký tự, không dấu cách!");
+
         if (dto.getName() == null || !dto.getName().trim().matches("^[\\p{L}\\s]+$"))
             throw new RuntimeException("Họ tên không chứa số/ký tự đặc biệt!");
+
         if (dto.getPhone() == null || !dto.getPhone().trim().matches("^(0[3|5|7|8|9])[0-9]{8}$"))
             throw new RuntimeException("SĐT VN 10 số không hợp lệ!");
-        if (dto.getEmail() == null || !dto.getEmail().trim().matches("^[A-Za-z0-9+_.-]+@(.+)$"))
-            throw new RuntimeException("Email không hợp lệ!");
+
+        // Đã sửa lại Regex Email: bắt buộc đuôi phải là chữ cái (VD: .com, .vn) và độ dài từ 2 ký tự trở lên
+        if (dto.getEmail() == null || !dto.getEmail().trim().matches("^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+\\.[a-zA-Z]{2,}$"))
+            throw new RuntimeException("Email không hợp lệ (Ví dụ chuẩn: ...@gmail.com)!");
     }
 }
