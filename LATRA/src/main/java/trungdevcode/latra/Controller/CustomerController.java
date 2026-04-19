@@ -12,7 +12,7 @@ import java.util.List;
 import java.util.Map;
 
 @RestController
-@RequestMapping("/api/v1/customers")
+@RequestMapping("/api/v1/khachHangs")
 @RequiredArgsConstructor
 public class CustomerController {
 
