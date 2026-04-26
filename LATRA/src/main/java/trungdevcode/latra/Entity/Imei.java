@@ -1,7 +1,10 @@
 package trungdevcode.latra.Entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.CreationTimestamp;
+import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "imeis")
@@ -26,5 +29,11 @@ public class Imei {
 
     @ManyToOne
     @JoinColumn(name = "order_id")
+    @JsonIgnore
     private Order order;
+
+    // THÊM ĐOẠN NÀY VÀO ĐỂ LẤY NGÀY GIỜ NHẬP KHO
+    @CreationTimestamp
+    @Column(name = "created_at", updatable = false)
+    private LocalDateTime createdAt;
 }

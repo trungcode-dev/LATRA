@@ -16,4 +16,5 @@ public interface ImeiRepository extends JpaRepository<Imei, Long> {
     long countByVariantAndStatus(ProductVariant variant, String status);
 
     List<Imei> findByVariantAndStatus(ProductVariant variant, String status);
+    boolean existsByImeiCode(String imeiCode);
 }

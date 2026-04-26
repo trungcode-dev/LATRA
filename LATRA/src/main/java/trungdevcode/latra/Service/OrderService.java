@@ -1,5 +1,6 @@
 package trungdevcode.latra.Service;
-
+import trungdevcode.latra.Entity.User;
+import trungdevcode.latra.Entity.Imei;
 import lombok.RequiredArgsConstructor;
 import org.modelmapper.ModelMapper;
 import org.springframework.data.domain.Page;
@@ -11,8 +12,11 @@ import trungdevcode.latra.Entity.Cart;
 import trungdevcode.latra.Entity.CartItem;
 import trungdevcode.latra.Entity.OrderDetail;
 import trungdevcode.latra.Entity.Order;
+import trungdevcode.latra.Entity.OrderDetailKey;
 import trungdevcode.latra.Entity.ProductVariant;
 import trungdevcode.latra.Repository.CartRepository;
+import trungdevcode.latra.Repository.ImeiRepository;
+import trungdevcode.latra.Repository.OrderDetailRepository;
 import trungdevcode.latra.Repository.OrderRepository;
 import trungdevcode.latra.Repository.ProductVariantRepository;
 import trungdevcode.latra.Repository.UserRepository;
@@ -25,12 +29,13 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 public class OrderService {
-
     private final OrderRepository orderRepository;
+    private final OrderDetailRepository orderDetailRepository;
+    private final ImeiRepository imeiRepository;
     private final ProductVariantRepository variantRepository;
+    private final UserRepository userRepository;
     private final ModelMapper modelMapper;
     private final CartRepository cartRepository;
-    private final UserRepository userRepository; // Nhớ thêm cái này vào @RequiredArgsConstructor
     public Page<DonHangDTO.DanhSach> getOrders(String status, Pageable pageable) {
         Page<Order> orders = (status != null && !status.isEmpty())
                 ? orderRepository.findByStatus(status, pageable)
@@ -149,5 +154,69 @@ public class OrderService {
         cartRepository.save(cart);
 
         return orderRepository.save(order);
+    }
+    // ==========================================
+    // API CHỐT ĐƠN CHO MÀN HÌNH POS (ĐỪNG XÓA NỮA NHÉ ^^)
+    // ==========================================
+    @Transactional
+    public String checkoutPOS(trungdevcode.latra.Dto.CheckoutRequestDTO request) {
+        if (request.getScannedImeis() == null || request.getScannedImeis().isEmpty()) {
+            throw new RuntimeException("Giỏ hàng trống! Chưa quét mã IMEI nào.");
+        }
+
+        // Tạo Hóa Đơn mới
+        Order order = new Order();
+        if (request.getUserId() != null) {
+            User user = userRepository.findById(request.getUserId()).orElse(null);
+            order.setUser(user);
+        }
+        order.setTotalAmount(request.getTotalAmount());
+        order.setStatus("COMPLETED");
+        order.setCreatedAt(java.time.LocalDateTime.now());
+        Order savedOrder = orderRepository.save(order);
+
+        java.util.Map<ProductVariant, Integer> variantCountMap = new java.util.HashMap<>();
+        java.util.List<Imei> imeisToUpdate = new java.util.ArrayList<>();
+
+        // Quét và đổi trạng thái IMEI
+        for (String code : request.getScannedImeis()) {
+            Imei imei = imeiRepository.findByImeiCode(code)
+                    .orElseThrow(() -> new RuntimeException("Mã IMEI " + code + " không tồn tại!"));
+
+            if (!"AVAILABLE".equals(imei.getStatus())) {
+                throw new RuntimeException("Mã IMEI " + code + " đã bị bán hoặc không khả dụng!");
+            }
+
+            imei.setStatus("SOLD");
+            imei.setOrder(savedOrder);
+            imeisToUpdate.add(imei);
+
+            ProductVariant variant = imei.getVariant();
+            variantCountMap.put(variant, variantCountMap.getOrDefault(variant, 0) + 1);
+        }
+        imeiRepository.saveAll(imeisToUpdate);
+
+        // Tạo Chi tiết Hóa đơn & Trừ Tồn kho
+        java.util.List<OrderDetail> orderDetails = new java.util.ArrayList<>();
+        for (java.util.Map.Entry<ProductVariant, Integer> entry : variantCountMap.entrySet()) {
+            ProductVariant variant = entry.getKey();
+            int quantity = entry.getValue();
+
+            OrderDetail detail = new OrderDetail();
+            detail.setId(new OrderDetailKey(savedOrder.getId(), variant.getId()));
+            detail.setOrder(savedOrder);
+            detail.setVariant(variant);
+            detail.setQuantity(quantity);
+            detail.setPrice(variant.getPrice());
+
+            orderDetails.add(detail);
+
+            long availableStock = imeiRepository.countByVariantAndStatus(variant, "AVAILABLE");
+            variant.setStock((int) availableStock);
+            variantRepository.save(variant);
+        }
+        orderDetailRepository.saveAll(orderDetails);
+
+        return "Chốt đơn thành công! Mã Hóa Đơn: #" + savedOrder.getId();
     }
 }

@@ -2,24 +2,38 @@ package trungdevcode.latra.Controller;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.PutMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
+import trungdevcode.latra.Dto.CheckoutRequestDTO;
 import trungdevcode.latra.Entity.Order;
 import trungdevcode.latra.Service.OrderService;
 
 @RestController
 @RequestMapping("/api/v1/orders")
 @RequiredArgsConstructor
+@CrossOrigin(origins = "http://localhost:5173")
 public class OrderController {
 
     private final OrderService orderService;
 
+    // ==========================================
+    // API MỚI CHO LUỒNG BÁN HÀNG POS (QUÉT SÚNG) - ĐANG CHẠY TỐT
+    // ==========================================
+    @PostMapping("/checkout-pos")
+    public ResponseEntity<?> checkoutPOS(@RequestBody CheckoutRequestDTO request) {
+        try {
+            String result = orderService.checkoutPOS(request);
+            return ResponseEntity.ok(result);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.status(400).body(e.getMessage());
+        }
+    }
+
+    // ==========================================
+    // CÁC API CŨ TẠM THỜI ĐÓNG BĂNG ĐỂ TRÁNH LỖI ĐỎ
+    // (Sau này khôi phục hàm trong Service thì mở lại sau)
+    // ==========================================
+    /*
     @PostMapping("/checkout/{userId}")
     public ResponseEntity<?> checkout(@PathVariable Long userId) {
         try {
@@ -57,4 +71,5 @@ public class OrderController {
             return ResponseEntity.badRequest().body(e.getMessage());
         }
     }
+    */
 }

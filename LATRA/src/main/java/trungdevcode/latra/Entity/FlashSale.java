@@ -28,6 +28,6 @@ public class FlashSale {
     @Column(name = "status")
     private Boolean status = true;
 
-    @OneToMany(mappedBy = "flashSale", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OneToMany(mappedBy = "flashSale", cascade = CascadeType.ALL, fetch = FetchType.EAGER) // <-- Thêm fetch = FetchType.EAGER
     private List<FlashSaleItem> items;
 }
