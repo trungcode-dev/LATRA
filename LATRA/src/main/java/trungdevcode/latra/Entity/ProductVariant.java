@@ -1,9 +1,11 @@
 package trungdevcode.latra.Entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import lombok.*;
 import java.math.BigDecimal;
+import java.util.List;
 
 @Entity
 @Table(name = "product_variants")
@@ -23,7 +25,7 @@ public class ProductVariant {
     @Column(name = "storage", columnDefinition = "NVARCHAR(50)")
     private String storage;
 
-    @Column(name = "price", nullable = false)
+    @Column(name = "price", nullable = false, precision = 15, scale = 2)
     private BigDecimal price;
 
     @Column(name = "stock")
@@ -37,4 +39,9 @@ public class ProductVariant {
     // THÊM DÒNG NÀY ĐỂ CHẶN VÒNG LẶP:
     @JsonIgnoreProperties("variants")
     private Product product;
+
+    // Trong file ProductVariant.java
+    @OneToMany(mappedBy = "variant")
+    @JsonIgnore // <--- THÊM VÀO ĐÂY NỮA
+    private List<Imei> imeis;
 }

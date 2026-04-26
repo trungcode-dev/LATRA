@@ -10,7 +10,12 @@ public class ProductResponseDTO {
     private String name;
     private String description;
 
+    private Long brandId;
+    private Long categoryId;
+    private Integer status;
+    private String mainImageUrl;
     private List<VariantDTO> variants;
+
 
     @Data
     public static class VariantDTO {
@@ -19,5 +24,6 @@ public class ProductResponseDTO {
         private String storage;
         private BigDecimal price;
         private Integer stock;
+        private String sku;
     }
 }

@@ -13,23 +13,25 @@ import java.math.BigDecimal;
 @NoArgsConstructor
 @AllArgsConstructor
 public class FlashSaleItem {
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+
+    @EmbeddedId
+    private FlashSaleItemId id = new FlashSaleItemId();
 
     @ManyToOne(fetch = FetchType.LAZY)
+    @MapsId("flashSaleId")
     @JoinColumn(name = "flash_sale_id")
     @JsonIgnore
     private FlashSale flashSale;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "product_id")
+    @MapsId("variantId")
+    @JoinColumn(name = "variant_id")
     @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
-    private Product product;
+    private ProductVariant productVariant;
 
     @Column(name = "sale_price")
     private BigDecimal salePrice;
 
-    @Column(name = "quantity")
-    private Integer quantity;
+    @Column(name = "quantity_limit")
+    private Integer quantityLimit;
 }
