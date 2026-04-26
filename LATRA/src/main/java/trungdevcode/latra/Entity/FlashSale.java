@@ -26,7 +26,7 @@ public class FlashSale {
     private LocalDateTime endTime;
 
     @Column(name = "status")
-    private Boolean status = true;
+    private String status;
 
     @OneToMany(mappedBy = "flashSale", cascade = CascadeType.ALL, fetch = FetchType.EAGER) // <-- Thêm fetch = FetchType.EAGER
     private List<FlashSaleItem> items;
