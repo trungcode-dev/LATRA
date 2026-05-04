@@ -3,6 +3,7 @@ package trungdevcode.latra.Repository;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 import trungdevcode.latra.Entity.Imei;
+import trungdevcode.latra.Entity.Order;
 import trungdevcode.latra.Entity.ProductVariant;
 
 import java.util.List;
@@ -17,4 +18,5 @@ public interface ImeiRepository extends JpaRepository<Imei, Long> {
 
     List<Imei> findByVariantAndStatus(ProductVariant variant, String status);
     boolean existsByImeiCode(String imeiCode);
+    List<Imei> findByOrder(Order order);
 }

@@ -1,4 +1,5 @@
 package trungdevcode.latra.Service;
+
 import trungdevcode.latra.Entity.User;
 import trungdevcode.latra.Entity.Imei;
 import lombok.RequiredArgsConstructor;
@@ -36,6 +37,7 @@ public class OrderService {
     private final UserRepository userRepository;
     private final ModelMapper modelMapper;
     private final CartRepository cartRepository;
+
     public Page<DonHangDTO.DanhSach> getOrders(String status, Pageable pageable) {
         Page<Order> orders = (status != null && !status.isEmpty())
                 ? orderRepository.findByStatus(status, pageable)
@@ -43,7 +45,8 @@ public class OrderService {
 
         return orders.map(order -> {
             DonHangDTO.DanhSach dto = modelMapper.map(order, DonHangDTO.DanhSach.class);
-            dto.setCustomerName(order.getUser().getFullName());
+            dto.setCustomerName(order.getUser() != null ? order.getUser().getFullName() : "Khách lẻ");
+            dto.setCustomerPhone(order.getUser() != null ? order.getUser().getPhone() : "");
             return dto;
         });
     }
@@ -53,25 +56,45 @@ public class OrderService {
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy đơn hàng"));
 
         DonHangDTO.ChiTiet dto = modelMapper.map(order, DonHangDTO.ChiTiet.class);
-        dto.setCustomerName(order.getUser().getFullName());
-        dto.setCustomerPhone(order.getUser().getPhone());
+
+        // Gán tên khách hàng
+        dto.setCustomerName(order.getUser() != null ? order.getUser().getFullName() : "Khách lẻ");
+        dto.setCustomerPhone(order.getUser() != null ? order.getUser().getPhone() : "");
+
+        // Gán tên nhân viên thu ngân
+        dto.setEmployeeName(order.getEmployee() != null ? order.getEmployee().getFullName() : "Nhân viên ẩn danh");
+
+        dto.setCreatedAt(order.getCreatedAt());
+
+        // Đẩy thông tin thanh toán chia nửa ra DTO để in Bill
+        dto.setPaymentMethod(order.getPaymentMethod() != null ? order.getPaymentMethod() : "CASH");
+        dto.setCashAmount(order.getCashAmount() != null ? order.getCashAmount() : BigDecimal.ZERO);
+        dto.setTransferAmount(order.getTransferAmount() != null ? order.getTransferAmount() : BigDecimal.ZERO);
+
+        // 👉 THÊM DÒNG NÀY: Trả ghi chú (chứa gói bảo hành) ra DTO để UI hiển thị
+        dto.setNote(order.getNote());
 
         if (order.getShipment() != null) {
             dto.setShippingAddress(order.getShipment().getAddress());
         }
 
+        List<Imei> imeisOfOrder = imeiRepository.findByOrder(order);
+
         List<DonHangDTO.Item> items = order.getOrderDetails().stream().map(detail -> {
             DonHangDTO.Item itemDto = new DonHangDTO.Item();
             itemDto.setVariantId(detail.getVariant().getId());
-            if (detail.getVariant().getProduct() != null) {
-                itemDto.setProductName(detail.getVariant().getProduct().getName());
-            } else {
-                itemDto.setProductName("Sản phẩm không xác định"); // Giá trị mặc định nếu rỗng
-            }
+            itemDto.setProductName(detail.getVariant().getProduct() != null ? detail.getVariant().getProduct().getName() : "Sản phẩm không xác định");
             itemDto.setColor(detail.getVariant().getColor());
             itemDto.setStorage(detail.getVariant().getStorage());
             itemDto.setQuantity(detail.getQuantity());
             itemDto.setPrice(detail.getPrice());
+
+            String imeiCodes = imeisOfOrder.stream()
+                    .filter(imei -> imei.getVariant().getId().equals(detail.getVariant().getId()))
+                    .map(Imei::getImeiCode)
+                    .collect(Collectors.joining(", "));
+
+            itemDto.setImeiCode(imeiCodes.isEmpty() ? "N/A" : imeiCodes);
             return itemDto;
         }).collect(Collectors.toList());
 
@@ -94,42 +117,28 @@ public class OrderService {
                 variantRepository.save(variant);
             }
         }
-
         order.setStatus(newStatus);
         orderRepository.save(order);
     }
+
     @Transactional
     public Order checkout(Long userId) {
-        // 1. Lấy giỏ hàng
-        Cart cart = cartRepository.findByUserId(userId)
-                .orElseThrow(() -> new RuntimeException("Giỏ hàng trống!"));
+        Cart cart = cartRepository.findByUserId(userId).orElseThrow(() -> new RuntimeException("Giỏ hàng trống!"));
+        if (cart.getItems().isEmpty()) throw new RuntimeException("Không có sản phẩm để thanh toán!");
 
-        if (cart.getItems().isEmpty()) {
-            throw new RuntimeException("Không có sản phẩm để thanh toán!");
-        }
-
-        // 2. TÌM USER ĐỐI TƯỢNG (Để gán vào OrderEntity)
-        // Sửa lỗi: order.setUser(cart.getUserId()) -> Đỏ vì sai kiểu dữ liệu
-        var user = userRepository.findById(cart.getUserId())
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy người dùng!"));
+        var user = userRepository.findById(cart.getUserId()).orElseThrow(() -> new RuntimeException("Không tìm thấy người dùng!"));
 
         Order order = new Order();
-        order.setUser(user); // Bây giờ gán Object User vào Object User là chuẩn
+        order.setUser(user);
         order.setStatus("PENDING");
         order.setCreatedAt(LocalDateTime.now());
-
-        // Đổi từ List cũ sang List mới để tránh lỗi NullPointerException
         order.setOrderDetails(new java.util.ArrayList<>());
 
-        double totalAmountAccumulator = 0; // Biến tạm để tính tổng
+        double totalAmountAccumulator = 0;
 
         for (CartItem item : cart.getItems()) {
             ProductVariant variant = item.getVariant();
-
-            if (variant.getStock() < item.getQuantity()) {
-                throw new RuntimeException("Sản phẩm " + variant.getSku() + " đã hết hàng!");
-            }
-
+            if (variant.getStock() < item.getQuantity()) throw new RuntimeException("Sản phẩm " + variant.getSku() + " đã hết hàng!");
             variant.setStock(variant.getStock() - item.getQuantity());
             variantRepository.save(variant);
 
@@ -137,48 +146,88 @@ public class OrderService {
             detail.setOrder(order);
             detail.setVariant(variant);
             detail.setQuantity(item.getQuantity());
-            // Giả sử variant.getPrice() trả về BigDecimal hoặc Double
             detail.setPrice(variant.getPrice());
 
             order.getOrderDetails().add(detail);
-
-            // Tính toán tổng tiền (ép kiểu về double để tính cho dễ)
             totalAmountAccumulator += variant.getPrice().doubleValue() * item.getQuantity();
         }
 
-        // 3. GÁN TỔNG TIỀN (Sửa lỗi gán double cho BigDecimal)
         order.setTotalAmount(BigDecimal.valueOf(totalAmountAccumulator));
-
-        // 4. Xóa sạch giỏ hàng
         cart.getItems().clear();
         cartRepository.save(cart);
 
         return orderRepository.save(order);
     }
-    // ==========================================
-    // API CHỐT ĐƠN CHO MÀN HÌNH POS (ĐỪNG XÓA NỮA NHÉ ^^)
-    // ==========================================
+
     @Transactional
     public String checkoutPOS(trungdevcode.latra.Dto.CheckoutRequestDTO request) {
         if (request.getScannedImeis() == null || request.getScannedImeis().isEmpty()) {
             throw new RuntimeException("Giỏ hàng trống! Chưa quét mã IMEI nào.");
         }
 
-        // Tạo Hóa Đơn mới
         Order order = new Order();
+
+        // 1. BẮT NHÂN VIÊN THU NGÂN
         if (request.getUserId() != null) {
-            User user = userRepository.findById(request.getUserId()).orElse(null);
-            order.setUser(user);
+            User employee = userRepository.findById(request.getUserId()).orElse(null);
+            order.setEmployee(employee);
         }
+
+        // 2. BẮT KHÁCH HÀNG
+        if (request.getCustomerPhone() != null && !request.getCustomerPhone().trim().isEmpty()) {
+            User customer = userRepository.findByPhone(request.getCustomerPhone());
+
+            if (customer == null) {
+                customer = new User();
+                String name = (request.getCustomerName() != null && !request.getCustomerName().trim().isEmpty())
+                        ? request.getCustomerName() : "Khách lẻ";
+                customer.setFullName(name);
+                customer.setPhone(request.getCustomerPhone());
+
+                customer.setUsername(request.getCustomerPhone());
+                customer.setPassword("123456");
+                customer.setEmail(request.getCustomerPhone() + "@khach.com");
+                customer.setAddress("Khách mua tại quầy");
+                customer.setStatus(1);
+
+                customer = userRepository.save(customer);
+            }
+            order.setUser(customer);
+        }
+
+        // 3. LOGIC LƯU SỐ TIỀN THANH TOÁN (TIỀN MẶT, CHUYỂN KHOẢN, KẾT HỢP)
         order.setTotalAmount(request.getTotalAmount());
+
+        // 👉 ĐÃ THÊM LOGIC LƯU GHI CHÚ BẢO HÀNH TỪ VUE GỬI XUỐNG
+        order.setNote(request.getNote());
+
+        String method = request.getPaymentMethod();
+        order.setPaymentMethod(method != null ? method : "CASH");
+
+        if ("CASH".equals(method)) {
+            order.setCashAmount(request.getTotalAmount());
+            order.setTransferAmount(BigDecimal.ZERO);
+        } else if ("TRANSFER".equals(method)) {
+            order.setCashAmount(BigDecimal.ZERO);
+            order.setTransferAmount(request.getTotalAmount());
+        } else if ("SPLIT".equals(method)) {
+            // Thanh toán kết hợp: Hứng đúng số tiền khách gõ ở Frontend
+            order.setCashAmount(request.getCashAmount() != null ? request.getCashAmount() : BigDecimal.ZERO);
+            order.setTransferAmount(request.getTransferAmount() != null ? request.getTransferAmount() : BigDecimal.ZERO);
+        } else {
+            order.setCashAmount(BigDecimal.ZERO);
+            order.setTransferAmount(BigDecimal.ZERO);
+        }
+
         order.setStatus("COMPLETED");
         order.setCreatedAt(java.time.LocalDateTime.now());
+
         Order savedOrder = orderRepository.save(order);
 
+        // Xử lý tồn kho và IMEI
         java.util.Map<ProductVariant, Integer> variantCountMap = new java.util.HashMap<>();
         java.util.List<Imei> imeisToUpdate = new java.util.ArrayList<>();
 
-        // Quét và đổi trạng thái IMEI
         for (String code : request.getScannedImeis()) {
             Imei imei = imeiRepository.findByImeiCode(code)
                     .orElseThrow(() -> new RuntimeException("Mã IMEI " + code + " không tồn tại!"));
@@ -196,7 +245,6 @@ public class OrderService {
         }
         imeiRepository.saveAll(imeisToUpdate);
 
-        // Tạo Chi tiết Hóa đơn & Trừ Tồn kho
         java.util.List<OrderDetail> orderDetails = new java.util.ArrayList<>();
         for (java.util.Map.Entry<ProductVariant, Integer> entry : variantCountMap.entrySet()) {
             ProductVariant variant = entry.getKey();
