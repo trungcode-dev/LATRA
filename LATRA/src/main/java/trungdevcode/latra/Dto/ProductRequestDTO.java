@@ -42,8 +42,11 @@ public class ProductRequestDTO {
 
         private String storage;
 
+        // 👉 THÊM DÒNG NÀY VÀO ĐÂY:
+        private String condition;
+
         @NotNull(message = "Giá không được để trống")
-        @DecimalMin(value = "0.0", inclusive = true, message = "Giá không được âm") // SỬA DÒNG NÀY
+        @DecimalMin(value = "0.0", inclusive = true, message = "Giá không được âm")
         private BigDecimal price;
 
         @NotNull(message = "Tồn kho không được để trống")

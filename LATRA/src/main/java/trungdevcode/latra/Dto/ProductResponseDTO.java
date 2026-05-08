@@ -22,6 +22,7 @@ public class ProductResponseDTO {
         private Long variantId;
         private String color;
         private String storage;
+        private String condition;
         private BigDecimal price;
         private Integer stock;
         private String sku;

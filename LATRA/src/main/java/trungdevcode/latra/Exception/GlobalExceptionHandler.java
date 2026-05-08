@@ -26,4 +26,15 @@ public class GlobalExceptionHandler {
 
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errors);
     }
+    @ExceptionHandler(RuntimeException.class)
+    public ResponseEntity<Map<String, String>> handleRuntimeException(RuntimeException ex) {
+        Map<String, String> errorResponse = new HashMap<>();
+
+        // Nhét đúng cái câu chửi (Ví dụ: "Giảm theo % không được vượt quá 100%!") vào biến message
+        errorResponse.put("message", ex.getMessage());
+
+        // Trả về mã lỗi 400 (Bad Request - Lỗi do người dùng nhập sai)
+        // Khi dùng cách này, Spring Boot sẽ KHÔNG in đống log đỏ lòm ra màn hình Console nữa!
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
+    }
 }

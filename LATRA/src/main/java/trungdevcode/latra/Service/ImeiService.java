@@ -21,12 +21,12 @@ public class ImeiService {
     private final ProductVariantRepository variantRepository;
 
     // Lấy toàn bộ danh sách để xem ở Tab 2 (ĐÃ SỬA LẠI THÀNH DẠNG MAP ĐỂ CHỐNG LỖI 500)
+    // Lấy toàn bộ danh sách để xem ở Tab 2 (ĐÃ SỬA LẠI THÀNH DẠNG MAP ĐỂ CHỐNG LỖI 500)
     public List<Map<String, Object>> findAllImeis() {
         List<Imei> imeis = imeiRepository.findAll();
         List<Map<String, Object>> result = new ArrayList<>();
 
         for (Imei imei : imeis) {
-            // Tự tay nhặt những thông tin cần thiết, vứt bỏ những thứ làm nặng máy
             Map<String, Object> imeiMap = new HashMap<>();
             imeiMap.put("id", imei.getId());
             imeiMap.put("imeiCode", imei.getImeiCode());
@@ -38,9 +38,20 @@ public class ImeiService {
                 variantMap.put("color", imei.getVariant().getColor());
                 variantMap.put("storage", imei.getVariant().getStorage());
 
+                // 🔥 ĐÂY RỒI! BƠM GIÁ TIỀN VÀO ĐÂY ÔNG ƠI!
+                variantMap.put("price", imei.getVariant().getPrice());
+
+                // (Tùy chọn) Nếu Entity Variant của ông có lưu link ảnh thì bơm luôn vào,
+                // để màn hình POS nó không bị hiện "No Image"
+                // variantMap.put("image", imei.getVariant().getImage());
+
                 if (imei.getVariant().getProduct() != null) {
                     Map<String, Object> productMap = new HashMap<>();
                     productMap.put("name", imei.getVariant().getProduct().getName());
+
+                    // (Tùy chọn) Nếu ảnh lưu ở Product cha thì nhét vào đây
+                    // productMap.put("image", imei.getVariant().getProduct().getImage());
+
                     variantMap.put("product", productMap);
                 }
                 imeiMap.put("variant", variantMap);

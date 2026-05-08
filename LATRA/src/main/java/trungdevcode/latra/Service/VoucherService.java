@@ -6,8 +6,11 @@ import trungdevcode.latra.Dto.VoucherRequestDTO;
 import trungdevcode.latra.Entity.Voucher;
 import trungdevcode.latra.Repository.VoucherRepository;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @Service
 public class VoucherService {
@@ -71,5 +74,45 @@ public class VoucherService {
 
     public void deleteVoucher(Long id) {
         voucherRepository.deleteById(id);
+    }
+
+    // 🔥 ĐOẠN NÀY LÀ MỚI THÊM: Xử lý kiểm tra mã cho màn hình POS
+    public Map<String, Object> checkVoucher(String code, BigDecimal orderTotal) {
+        Voucher voucher = voucherRepository.findByCode(code)
+                .orElseThrow(() -> new RuntimeException("Mã giảm giá không tồn tại!"));
+
+        LocalDateTime now = LocalDateTime.now();
+
+        if (now.isBefore(voucher.getStartDate())) {
+            throw new RuntimeException("Mã giảm giá này chưa tới thời gian áp dụng!");
+        }
+        if (now.isAfter(voucher.getExpiredAt())) {
+            throw new RuntimeException("Mã giảm giá này đã hết hạn!");
+        }
+        if (voucher.getUsageLimit() <= 0) {
+            throw new RuntimeException("Mã giảm giá đã hết lượt sử dụng!");
+        }
+        if (orderTotal.compareTo(voucher.getMinOrderValue()) < 0) {
+            throw new RuntimeException("Đơn hàng chưa đạt mức tối thiểu " + voucher.getMinOrderValue() + "đ để dùng mã này!");
+        }
+
+        BigDecimal discountAmount = BigDecimal.ZERO;
+        if ("FIXED_AMOUNT".equals(voucher.getDiscountType())) {
+            discountAmount = voucher.getValue();
+        } else if ("PERCENTAGE".equals(voucher.getDiscountType())) {
+            discountAmount = orderTotal.multiply(voucher.getValue()).divide(new BigDecimal("100"));
+            if (voucher.getMaxDiscountAmount() != null && discountAmount.compareTo(voucher.getMaxDiscountAmount()) > 0) {
+                discountAmount = voucher.getMaxDiscountAmount();
+            }
+        }
+
+        if (discountAmount.compareTo(orderTotal) > 0) {
+            discountAmount = orderTotal;
+        }
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("discountAmount", discountAmount);
+        response.put("voucherCode", voucher.getCode());
+        return response;
     }
 }

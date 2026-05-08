@@ -68,6 +68,8 @@ public class ProductService {
             vDto.setPrice(v.getPrice());
             vDto.setStock(v.getStock());
             vDto.setSku(v.getSku());
+            // 👉 ĐÃ THÊM: Map dữ liệu tình trạng máy ra cho Web
+            vDto.setCondition(v.getCondition());
             return vDto;
         }).collect(Collectors.toList());
 
@@ -92,9 +94,11 @@ public class ProductService {
                 ProductVariant variant = new ProductVariant();
                 variant.setColor(vDto.getColor());
                 variant.setStorage(vDto.getStorage());
-                variant.setPrice(vDto.getPrice()); // BigDecimal
+                variant.setPrice(vDto.getPrice());
                 variant.setStock(vDto.getStock());
                 variant.setSku(vDto.getSku());
+                // 👉 ĐÃ THÊM: Hứng dữ liệu tình trạng máy từ Web đẩy xuống DB
+                variant.setCondition(vDto.getCondition());
                 variant.setProduct(product);
                 return variant;
             }).collect(Collectors.toList());
@@ -104,7 +108,6 @@ public class ProductService {
 
         // --- BẮT LỖI DATABASE: Trùng SKU với sản phẩm khác đã có trong DB ---
         try {
-            // Dùng saveAndFlush để ép Spring Boot ghi ngay lập tức và bắt lỗi liền tay
             Product savedProduct = productRepository.saveAndFlush(product);
             return getProductById(savedProduct.getId());
         } catch (DataIntegrityViolationException e) {
@@ -143,6 +146,8 @@ public class ProductService {
                     vDto.setPrice(v.getPrice());
                     vDto.setStock(v.getStock());
                     vDto.setSku(v.getSku());
+                    // 👉 ĐÃ THÊM: Map dữ liệu tình trạng máy ra cho Web (danh sách)
+                    vDto.setCondition(v.getCondition());
                     return vDto;
                 }).collect(Collectors.toList());
                 dto.setVariants(variantDTOs);
@@ -175,7 +180,6 @@ public class ProductService {
         product.setStatus(request.getStatus());
 
         // --- LOGIC MỚI: Cập nhật Variant thông minh (Update in-place) ---
-        // 1. Nhóm các phiên bản gửi lên từ Vue.js vào một Map (Dùng SKU làm chìa khóa)
         Map<String, ProductRequestDTO.VariantRequestDTO> requestMap = new HashMap<>();
         if (request.getVariants() != null) {
             for (var v : request.getVariants()) {
@@ -185,42 +189,38 @@ public class ProductService {
             }
         }
 
-        // 2. Duyệt qua các phiên bản ĐANG CÓ trong Database
         Iterator<ProductVariant> iterator = product.getVariants().iterator();
         while (iterator.hasNext()) {
             ProductVariant existingVariant = iterator.next();
             String existingSku = existingVariant.getSku().toUpperCase();
 
             if (requestMap.containsKey(existingSku)) {
-                // Nếu SKU cũ có mặt trong danh sách gửi lên -> CẬP NHẬT thông tin
                 var vDto = requestMap.get(existingSku);
                 existingVariant.setColor(vDto.getColor());
                 existingVariant.setStorage(vDto.getStorage());
                 existingVariant.setPrice(vDto.getPrice());
-                // TUYỆT ĐỐI KHÔNG cập nhật Tồn kho (Stock) ở đây, giữ nguyên số của Database
+                // 👉 ĐÃ THÊM: Cập nhật tình trạng máy khi Edit
+                existingVariant.setCondition(vDto.getCondition());
 
-                // Xong việc thì xóa khỏi Map để lát nữa xử lý bọn thêm mới
                 requestMap.remove(existingSku);
             } else {
-                // Nếu SKU cũ KHÔNG có mặt trong danh sách gửi lên -> XÓA (Admin đã bấm nút thùng rác)
-                // Lưu ý: Nếu phiên bản này đã có IMEI, DB sẽ văng lỗi Khóa ngoại để bảo vệ dữ liệu!
                 iterator.remove();
             }
         }
 
-        // 3. Những SKU còn sót lại trong Map chính là những phiên bản THÊM MỚI
         for (var vDto : requestMap.values()) {
             ProductVariant newVariant = new ProductVariant();
             newVariant.setColor(vDto.getColor());
             newVariant.setStorage(vDto.getStorage());
             newVariant.setPrice(vDto.getPrice());
-            newVariant.setStock(0); // Hàng mới mặc định tồn kho = 0
+            newVariant.setStock(0);
             newVariant.setSku(vDto.getSku().toUpperCase());
+            // 👉 ĐÃ THÊM: Cập nhật tình trạng máy khi Thêm mới bản Edit
+            newVariant.setCondition(vDto.getCondition());
             newVariant.setProduct(product);
             product.getVariants().add(newVariant);
         }
 
-        // --- LƯU XUỐNG DATABASE ---
         try {
             productRepository.saveAndFlush(product);
             return getProductById(id);
@@ -268,9 +268,6 @@ public class ProductService {
         return "Upload thành công! Tên file: " + uniqueFilename;
     }
 
-    /**
-     * Hàm helper để kiểm tra trùng lặp SKU trong danh sách truyền lên
-     */
     private void validateUniqueSkus(List<ProductRequestDTO.VariantRequestDTO> variants) {
         if (variants == null || variants.isEmpty()) return;
 
