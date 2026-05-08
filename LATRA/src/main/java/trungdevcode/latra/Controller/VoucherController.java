@@ -9,11 +9,12 @@ import trungdevcode.latra.Dto.VoucherRequestDTO;
 import trungdevcode.latra.Entity.Voucher;
 import trungdevcode.latra.Service.VoucherService;
 
-
+import java.math.BigDecimal;
 import java.util.List;
 
 @RestController
 @RequestMapping("/api/v1/vouchers/admin")
+@CrossOrigin(origins = "http://localhost:5173") // 🔥 Nhớ cái này để Vue gọi không bị lỗi CORS
 public class VoucherController {
 
     @Autowired
@@ -38,5 +39,17 @@ public class VoucherController {
     public ResponseEntity<String> deleteVoucher(@PathVariable Long id) {
         voucherService.deleteVoucher(id);
         return ResponseEntity.ok("Đã xóa mã Voucher thành công!");
+    }
+
+    // 🔥 ĐOẠN NÀY LÀ MỚI THÊM: Cổng API cho nút "Áp dụng" bên POS
+    @GetMapping("/check")
+    public ResponseEntity<?> checkVoucher(
+            @RequestParam String code,
+            @RequestParam BigDecimal total) {
+        try {
+            return ResponseEntity.ok(voucherService.checkVoucher(code, total));
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body("{\"message\": \"" + e.getMessage() + "\"}");
+        }
     }
 }

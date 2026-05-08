@@ -33,7 +33,8 @@ public class ProductVariant {
 
     @Column(name = "sku", unique = true)
     private String sku;
-
+    @Column(name = "condition", length = 50)
+    private String condition;
     @ManyToOne
     @JoinColumn(name = "product_id")
     // THÊM DÒNG NÀY ĐỂ CHẶN VÒNG LẶP:
